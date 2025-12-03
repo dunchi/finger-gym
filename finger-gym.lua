@@ -101,7 +101,7 @@ function M.createCanvas()
         textSize = 24,
         textColor = {red = 0.3, green = 0.9, blue = 0.4, alpha = 1},
         textAlignment = "center",
-        frame = {x = 0, y = 8, w = width, h = height - 8}
+        frame = {x = 0, y = 12, w = width, h = height - 12}
     }
 
     M.canvas:level(hs.canvas.windowLevels.overlay)
@@ -182,6 +182,198 @@ end
 function M.restart()
     M.stop()
     M.start()
+end
+
+-- 로그 파일에서 기록 읽기
+function M.loadLogData()
+    local data = {}
+    local file = io.open(M.logFile, "r")
+    if file then
+        for line in file:lines() do
+            local date, count = line:match("([^,]+),([^,]+)")
+            if date and count then
+                data[date] = tonumber(count) or 0
+            end
+        end
+        file:close()
+    end
+    return data
+end
+
+-- 최근 N일 기록 가져오기 (오래된 날짜부터, 오늘이 마지막)
+function M.getRecentDays(days)
+    local logData = M.loadLogData()
+    local result = {}
+    local total = 0
+
+    for i = days - 1, 0, -1 do
+        local timestamp = os.time() - (i * 86400)
+        local date = os.date("%Y-%m-%d", timestamp)
+        local count = 0
+
+        if i == 0 then
+            -- 오늘은 현재 카운트
+            count = M.count
+        else
+            count = logData[date] or 0
+        end
+
+        table.insert(result, {date = date, count = count, isToday = (i == 0)})
+        total = total + count
+    end
+
+    return result, total
+end
+
+-- 주간 기록 팝업
+M.weeklyCanvas = nil
+M.weeklyTimer = nil
+
+function M.showWeeklyStats()
+    -- 기존 팝업 닫기
+    M.hideWeeklyStats()
+
+    local days, total = M.getRecentDays(7)
+    local screen = hs.screen.primaryScreen()
+    local frame = screen:frame()
+
+    local width = 280
+    local lineHeight = 28
+    local headerHeight = 40
+    local footerHeight = 36
+    local height = headerHeight + (lineHeight * 7) + footerHeight + 20
+    local padding = 20
+
+    -- 키 카운트 캔버스 위에 위치
+    local x = frame.x + frame.w - width - padding
+    local y = frame.y + frame.h - 50 - padding - height - 10  -- 카운트 캔버스(50) 위
+
+    M.weeklyCanvas = hs.canvas.new({x = x, y = y, w = width, h = height})
+
+    -- 배경
+    M.weeklyCanvas[1] = {
+        type = "rectangle",
+        fillColor = {red = 0.12, green = 0.12, blue = 0.14, alpha = 0.95},
+        roundedRectRadii = {xRadius = 12, yRadius = 12},
+    }
+
+    -- 테두리
+    M.weeklyCanvas[2] = {
+        type = "rectangle",
+        strokeColor = {red = 0.3, green = 0.3, blue = 0.35, alpha = 1},
+        strokeWidth = 1,
+        fillColor = {alpha = 0},
+        roundedRectRadii = {xRadius = 12, yRadius = 12},
+    }
+
+    -- 헤더
+    M.weeklyCanvas[3] = {
+        type = "text",
+        text = "최근 7일 타수",
+        textFont = "Helvetica Neue Bold",
+        textSize = 16,
+        textColor = {red = 1, green = 1, blue = 1, alpha = 1},
+        textAlignment = "center",
+        frame = {x = 0, y = 12, w = width, h = 24}
+    }
+
+    -- 구분선
+    M.weeklyCanvas[4] = {
+        type = "rectangle",
+        fillColor = {red = 0.3, green = 0.3, blue = 0.35, alpha = 1},
+        frame = {x = 20, y = headerHeight, w = width - 40, h = 1}
+    }
+
+    -- 일별 기록
+    local idx = 5
+    for i, day in ipairs(days) do
+        local yPos = headerHeight + 10 + (i - 1) * lineHeight
+        local displayDate = day.date:sub(6) -- MM-DD만 표시
+        local label = displayDate
+        if day.isToday then
+            label = displayDate .. " (오늘)"
+        end
+
+        -- 날짜
+        M.weeklyCanvas[idx] = {
+            type = "text",
+            text = label,
+            textFont = "Menlo",
+            textSize = 14,
+            textColor = {red = 0.7, green = 0.7, blue = 0.7, alpha = 1},
+            textAlignment = "left",
+            frame = {x = 24, y = yPos, w = 120, h = 24}
+        }
+        idx = idx + 1
+
+        -- 카운트
+        local countColor = {red = 0.3, green = 0.9, blue = 0.4, alpha = 1}
+        if day.count == 0 then
+            countColor = {red = 0.5, green = 0.5, blue = 0.5, alpha = 1}
+        end
+
+        M.weeklyCanvas[idx] = {
+            type = "text",
+            text = M.formatNumber(day.count),
+            textFont = "Menlo",
+            textSize = 14,
+            textColor = countColor,
+            textAlignment = "right",
+            frame = {x = width - 24 - 100, y = yPos, w = 100, h = 24}
+        }
+        idx = idx + 1
+    end
+
+    -- 하단 구분선
+    local footerY = headerHeight + 10 + (7 * lineHeight)
+    M.weeklyCanvas[idx] = {
+        type = "rectangle",
+        fillColor = {red = 0.3, green = 0.3, blue = 0.35, alpha = 1},
+        frame = {x = 20, y = footerY, w = width - 40, h = 1}
+    }
+    idx = idx + 1
+
+    -- 합계
+    M.weeklyCanvas[idx] = {
+        type = "text",
+        text = "주간 합계",
+        textFont = "Helvetica Neue",
+        textSize = 14,
+        textColor = {red = 0.8, green = 0.8, blue = 0.8, alpha = 1},
+        textAlignment = "left",
+        frame = {x = 24, y = footerY + 8, w = 100, h = 24}
+    }
+    idx = idx + 1
+
+    M.weeklyCanvas[idx] = {
+        type = "text",
+        text = M.formatNumber(total),
+        textFont = "Menlo Bold",
+        textSize = 16,
+        textColor = {red = 0.4, green = 0.8, blue = 1, alpha = 1},
+        textAlignment = "right",
+        frame = {x = width - 24 - 100, y = footerY + 8, w = 100, h = 24}
+    }
+
+    M.weeklyCanvas:level(hs.canvas.windowLevels.overlay)
+    M.weeklyCanvas:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces)
+    M.weeklyCanvas:show()
+
+    -- 5초 후 자동 닫기
+    M.weeklyTimer = hs.timer.doAfter(5, function()
+        M.hideWeeklyStats()
+    end)
+end
+
+function M.hideWeeklyStats()
+    if M.weeklyTimer then
+        M.weeklyTimer:stop()
+        M.weeklyTimer = nil
+    end
+    if M.weeklyCanvas then
+        M.weeklyCanvas:delete()
+        M.weeklyCanvas = nil
+    end
 end
 
 return M

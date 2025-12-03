@@ -13,6 +13,7 @@ macOS 키보드 타수 카운터 - 하루종일 키보드 치는 보람을 숫�
 - 실시간 키 입력 카운트
 - 하루 단위 자동 리셋 (자정)
 - 일별 기록 저장
+- 최근 7일 기록 팝업
 - 가볍고 시스템 리소스 거의 사용 안함
 
 ## 미리보기
@@ -21,6 +22,19 @@ macOS 키보드 타수 카운터 - 하루종일 키보드 치는 보람을 숫�
 ┌─────────────┐
 │   12,345    │  ← 우측 하단에 표시
 └─────────────┘
+
+Ctrl+Alt+Cmd+H 로 주간 기록 확인:
+
+┌─────────────────────────┐
+│    최근 7일 타수        │
+├─────────────────────────┤
+│  12-03 (오늘)    1,234  │
+│  12-02           8,765  │
+│  12-01          12,345  │
+│  ...                    │
+├─────────────────────────┤
+│  주간 합계      45,678  │
+└─────────────────────────┘
 ```
 
 ## 설치
@@ -34,7 +48,7 @@ brew install --cask hammerspoon
 ### 2. 프로젝트 클론
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/finger-gym.git ~/finger-gym
+git clone https://github.com/dunchi/finger-gym.git ~/finger-gym
 ```
 
 ### 3. Hammerspoon 설정
@@ -48,24 +62,9 @@ package.path = package.path .. ";/Users/YOUR_USERNAME/finger-gym/?.lua"
 local fingerGym = require("finger-gym")
 fingerGym.start()
 
--- 단축키: Ctrl+Alt+Cmd+K 로 재시작
-hs.hotkey.bind({"ctrl", "alt", "cmd"}, "K", function()
-    fingerGym.restart()
-    hs.alert.show("finger-gym 재시작")
-end)
-
--- 단축키: Ctrl+Alt+Cmd+J 로 숨기기/보이기 토글
-local isVisible = true
-hs.hotkey.bind({"ctrl", "alt", "cmd"}, "J", function()
-    if isVisible then
-        fingerGym.canvas:hide()
-        isVisible = false
-        hs.alert.show("finger-gym 숨김")
-    else
-        fingerGym.canvas:show()
-        isVisible = true
-        hs.alert.show("finger-gym 표시")
-    end
+-- 단축키: Ctrl+Alt+Cmd+H 로 주간 기록 보기
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "H", function()
+    fingerGym.showWeeklyStats()
 end)
 ```
 
@@ -81,8 +80,38 @@ end)
 
 | 키 | 기능 |
 |----|------|
-| `Ctrl+Alt+Cmd+K` | 재시작 |
-| `Ctrl+Alt+Cmd+J` | 숨기기/보이기 토글 |
+| `Ctrl+Alt+Cmd+H` | 최근 7일 기록 보기 |
+
+> 단축키는 `~/.hammerspoon/init.lua`에서 원하는 키로 변경할 수 있습니다.
+
+### 단축키 커스터마이징
+
+`init.lua`에서 단축키를 자유롭게 수정하세요:
+
+```lua
+-- 예시: 다른 단축키로 변경
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "S", function()  -- H 대신 S
+    fingerGym.showWeeklyStats()
+end)
+
+-- 예시: 재시작 단축키 추가
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "R", function()
+    fingerGym.restart()
+    hs.alert.show("finger-gym 재시작")
+end)
+
+-- 예시: 숨기기/보이기 토글 추가
+local isVisible = true
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "T", function()
+    if isVisible then
+        fingerGym.canvas:hide()
+        isVisible = false
+    else
+        fingerGym.canvas:show()
+        isVisible = true
+    end
+end)
+```
 
 ### 데이터 파일
 
