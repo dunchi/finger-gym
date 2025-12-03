@@ -66,6 +66,12 @@ fingerGym.start()
 hs.hotkey.bind({"ctrl", "alt", "cmd"}, "H", function()
     fingerGym.showWeeklyStats()
 end)
+
+-- 단축키: Ctrl+Alt+Cmd+R 로 재시작
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "R", function()
+    fingerGym.restart()
+    hs.notify.new({title = "finger-gym", informativeText = "재시작 완료"}):send()
+end)
 ```
 
 ### 4. 접근성 권한 부여 (필수)
@@ -81,6 +87,7 @@ end)
 | 키 | 기능 |
 |----|------|
 | `Ctrl+Alt+Cmd+H` | 최근 7일 기록 보기 |
+| `Ctrl+Alt+Cmd+R` | 재시작 |
 
 > 단축키는 `~/.hammerspoon/init.lua`에서 원하는 키로 변경할 수 있습니다.
 
