@@ -90,7 +90,6 @@ function M.createCanvas()
     M.canvas[1] = {
         type = "rectangle",
         fillColor = {red = 0.1, green = 0.1, blue = 0.1, alpha = 0.7},
-        roundedRectRadii = {xRadius = 8, yRadius = 8},
     }
 
     -- 텍스트
@@ -101,7 +100,7 @@ function M.createCanvas()
         textSize = 24,
         textColor = {red = 0.3, green = 0.9, blue = 0.4, alpha = 1},
         textAlignment = "center",
-        frame = {x = 0, y = 12, w = width, h = height - 12}
+        frame = {x = 0, y = 13, w = width, h = height}
     }
 
     M.canvas:level(hs.canvas.windowLevels.overlay)
@@ -254,7 +253,6 @@ function M.showWeeklyStats()
     M.weeklyCanvas[1] = {
         type = "rectangle",
         fillColor = {red = 0.12, green = 0.12, blue = 0.14, alpha = 0.95},
-        roundedRectRadii = {xRadius = 12, yRadius = 12},
     }
 
     -- 테두리
@@ -263,7 +261,6 @@ function M.showWeeklyStats()
         strokeColor = {red = 0.3, green = 0.3, blue = 0.35, alpha = 1},
         strokeWidth = 1,
         fillColor = {alpha = 0},
-        roundedRectRadii = {xRadius = 12, yRadius = 12},
     }
 
     -- 헤더
