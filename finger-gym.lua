@@ -14,6 +14,7 @@ M.today = os.date("%Y-%m-%d")
 M.canvas = nil
 M.keyTap = nil
 M.midnightTimer = nil
+M.weekOffset = 0
 
 -- 오늘 카운트 파일에서 로드
 function M.loadTodayCount()
@@ -199,29 +200,52 @@ function M.loadLogData()
     return data
 end
 
--- 최근 N일 기록 가져오기 (오래된 날짜부터, 오늘이 마지막)
-function M.getRecentDays(days)
+-- 특정 주간 기록 가져오기 (offset: 0=이번주, 1=저번주, ...)
+-- 월요일~일요일 기준
+function M.getWeekData(offset)
     local logData = M.loadLogData()
     local result = {}
     local total = 0
+    local hasData = false
 
-    for i = days - 1, 0, -1 do
-        local timestamp = os.time() - (i * 86400)
+    -- 오늘 날짜와 요일 구하기
+    local now = os.time()
+    local todayDate = os.date("%Y-%m-%d", now)
+    local wday = tonumber(os.date("%w", now)) -- 0=일, 1=월, ..., 6=토
+
+    -- 이번 주 월요일까지의 일수 계산 (월요일=0, 화요일=1, ..., 일요일=6)
+    local daysFromMonday
+    if wday == 0 then
+        daysFromMonday = 6 -- 일요일이면 6일 전이 월요일
+    else
+        daysFromMonday = wday - 1
+    end
+
+    -- offset 주 전의 월요일 timestamp
+    local mondayTimestamp = now - ((daysFromMonday + (offset * 7)) * 86400)
+
+    -- 월~일 7일 표시
+    for i = 0, 6 do
+        local timestamp = mondayTimestamp + (i * 86400)
         local date = os.date("%Y-%m-%d", timestamp)
         local count = 0
+        local isToday = (date == todayDate)
 
-        if i == 0 then
-            -- 오늘은 현재 카운트
+        if isToday then
             count = M.count
+            hasData = true
         else
             count = logData[date] or 0
+            if count > 0 then
+                hasData = true
+            end
         end
 
-        table.insert(result, {date = date, count = count, isToday = (i == 0)})
+        table.insert(result, {date = date, count = count, isToday = isToday})
         total = total + count
     end
 
-    return result, total
+    return result, total, hasData
 end
 
 -- 주간 기록 팝업
@@ -229,23 +253,48 @@ M.weeklyCanvas = nil
 M.weeklyTimer = nil
 
 function M.showWeeklyStats()
-    -- 기존 팝업 닫기
-    M.hideWeeklyStats()
+    -- 팝업이 이미 열려있으면 이전 주로 이동
+    if M.weeklyCanvas then
+        local nextOffset = M.weekOffset + 1
+        local _, _, hasData = M.getWeekData(nextOffset)
+        if hasData then
+            M.weekOffset = nextOffset
+            M.renderWeeklyCanvas()
+        end
+        -- 데이터 없으면 무시 (현재 주 유지)
+        return
+    end
 
-    local days, total = M.getRecentDays(7)
+    -- 새로 열기
+    M.weekOffset = 0
+    M.renderWeeklyCanvas()
+end
+
+function M.renderWeeklyCanvas()
+    -- 기존 캔버스 삭제
+    if M.weeklyCanvas then
+        M.weeklyCanvas:delete()
+        M.weeklyCanvas = nil
+    end
+    if M.weeklyTimer then
+        M.weeklyTimer:stop()
+        M.weeklyTimer = nil
+    end
+
+    local days, total, _ = M.getWeekData(M.weekOffset)
     local screen = hs.screen.primaryScreen()
     local frame = screen:frame()
 
     local width = 280
     local lineHeight = 28
-    local headerHeight = 40
+    local topPadding = 16
     local footerHeight = 36
-    local height = headerHeight + (lineHeight * 7) + footerHeight + 20
+    local height = topPadding + (lineHeight * 7) + footerHeight + 10
     local padding = 20
 
     -- 키 카운트 캔버스 위에 위치
     local x = frame.x + frame.w - width - padding
-    local y = frame.y + frame.h - 50 - padding - height - 10  -- 카운트 캔버스(50) 위
+    local y = frame.y + frame.h - 50 - padding - height - 10
 
     M.weeklyCanvas = hs.canvas.new({x = x, y = y, w = width, h = height})
 
@@ -263,33 +312,19 @@ function M.showWeeklyStats()
         fillColor = {alpha = 0},
     }
 
-    -- 헤더
-    M.weeklyCanvas[3] = {
-        type = "text",
-        text = "최근 7일 타수",
-        textFont = "Helvetica Neue Bold",
-        textSize = 16,
-        textColor = {red = 1, green = 1, blue = 1, alpha = 1},
-        textAlignment = "center",
-        frame = {x = 0, y = 12, w = width, h = 24}
-    }
-
-    -- 구분선
-    M.weeklyCanvas[4] = {
-        type = "rectangle",
-        fillColor = {red = 0.3, green = 0.3, blue = 0.35, alpha = 1},
-        frame = {x = 20, y = headerHeight, w = width - 40, h = 1}
-    }
+    -- 요일 변환 테이블
+    local weekdays = {"일", "월", "화", "수", "목", "금", "토"}
 
     -- 일별 기록
-    local idx = 5
+    local idx = 3
     for i, day in ipairs(days) do
-        local yPos = headerHeight + 10 + (i - 1) * lineHeight
+        local yPos = topPadding + (i - 1) * lineHeight
         local displayDate = day.date:sub(6) -- MM-DD만 표시
-        local label = displayDate
-        if day.isToday then
-            label = displayDate .. " (오늘)"
-        end
+        -- 요일 계산
+        local y, m, d = day.date:match("(%d+)-(%d+)-(%d+)")
+        local timestamp = os.time({year = tonumber(y), month = tonumber(m), day = tonumber(d)})
+        local wday = tonumber(os.date("%w", timestamp)) + 1 -- Lua 테이블은 1부터
+        local label = displayDate .. " (" .. weekdays[wday] .. ")"
 
         -- 날짜
         M.weeklyCanvas[idx] = {
@@ -322,7 +357,7 @@ function M.showWeeklyStats()
     end
 
     -- 하단 구분선
-    local footerY = headerHeight + 10 + (7 * lineHeight)
+    local footerY = topPadding + (7 * lineHeight)
     M.weeklyCanvas[idx] = {
         type = "rectangle",
         fillColor = {red = 0.3, green = 0.3, blue = 0.35, alpha = 1},
@@ -371,6 +406,7 @@ function M.hideWeeklyStats()
         M.weeklyCanvas:delete()
         M.weeklyCanvas = nil
     end
+    M.weekOffset = 0
 end
 
 return M
