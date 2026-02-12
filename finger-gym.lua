@@ -73,7 +73,7 @@ function M.updateDisplay()
     end
 end
 
--- 캔버스 생성 (우측 하단)
+-- 캔버스 생성 (우측 하단, claude-usage 위)
 function M.createCanvas()
     local screen = hs.screen.primaryScreen()
     local frame = screen:frame()
@@ -81,9 +81,10 @@ function M.createCanvas()
     local width = 150
     local height = 50
     local padding = 20
+    local gap = 10
 
     local x = frame.x + frame.w - width - padding
-    local y = frame.y + frame.h - height - padding
+    local y = frame.y + frame.h - height - padding - height - gap  -- claude-usage 위
 
     M.canvas = hs.canvas.new({x = x, y = y, w = width, h = height})
 
@@ -292,9 +293,10 @@ function M.renderWeeklyCanvas()
     local height = topPadding + (lineHeight * 7) + footerHeight + 10
     local padding = 20
 
-    -- 키 카운트 캔버스 위에 위치
+    -- finger-gym 캔버스 위에 위치 (claude-usage가 맨 아래에 있음)
     local x = frame.x + frame.w - width - padding
-    local y = frame.y + frame.h - 50 - padding - height - 10
+    local fingerGymY = frame.y + frame.h - 50 - padding - 50 - 10  -- finger-gym 위치
+    local y = fingerGymY - height - 10
 
     M.weeklyCanvas = hs.canvas.new({x = x, y = y, w = width, h = height})
 
