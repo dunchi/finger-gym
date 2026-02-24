@@ -4,7 +4,7 @@
 local M = {}
 
 -- 설정
-M.projectPath = "/Users/hanju/02hobby/finger-gym"
+M.projectPath = "/Users/hanju/02hobby/hammerspoon-finger-gym"
 M.logFile = M.projectPath .. "/keystroke_log.txt"
 M.todayFile = M.projectPath .. "/today_count.txt"
 
